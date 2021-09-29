@@ -8,12 +8,25 @@
 // How long should we wait for a response before deciding the hardware crashed?
 constexpr int hardwareTimeout = 2;
 
+// Create the thread locks
+std::mutex CTLock;
+std::mutex USLock;
+
 template<IMAGE_TYPE type>
-std::vector<double> getImages(std::mutex& lock) {
+constexpr std::mutex& getLock() {
+    if (type == IMAGE_TYPE::US) {
+        return USLock;
+    } else if (type == IMAGE_TYPE::CT) {
+        return CTLock;
+    }
+}
+
+template<IMAGE_TYPE type>
+std::vector<double> getImages() {
     std::vector<double> toWrite;
 
     // Wait until we have the lock
-    std::lock_guard guard(lock);
+    std::lock_guard guard(getLock<type>());
 
     while (toWrite.size() < 100) {
         try {
@@ -56,9 +69,9 @@ std::vector<double> getImages(std::mutex& lock) {
 //  - Call this, check it outputs to console as expected
 //  - Or, once fully implemented to save files, check all the files exist as expected
 template<IMAGE_TYPE type>
-void saveImages(std::mutex& lock) {
+void saveImages() {
 
-    std::vector<double> toWrite = getImages<type>(lock);
+    std::vector<double> toWrite = getImages<type>();
     fprintf(stdout, "DEBUG: writing %s\n", type == IMAGE_TYPE::US ? "US" : "CT");
 
     // Loop over the array and write it to disk
@@ -77,9 +90,9 @@ void saveImages(std::mutex& lock) {
 }
 
 template<IMAGE_TYPE type>
-[[noreturn]] void saveImagesLoop(std::mutex& lock) {
+[[noreturn]] void saveImagesLoop() {
     fprintf(stdout, "DEBUG: Starting %s\n", type == IMAGE_TYPE::US ? "US" : "CT");
     while(true) {
-        saveImages<type>(lock);
+        saveImages<type>();
     }
 }
